@@ -20,6 +20,7 @@ import android.util.Log
 import com.crakac.mediaprojectionsample.encoder.MyMediaRecorder
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.roundToInt
 
 class ScreenRecordService : Service() {
     private lateinit var virtualDisplay: VirtualDisplay
@@ -68,8 +69,15 @@ class ScreenRecordService : Service() {
         projection = projectionManager.getMediaProjection(RESULT_OK, data)
 
         val metrics = resources.displayMetrics
-        val width = metrics.widthPixels
-        val height = metrics.heightPixels
+        val rawWidth = metrics.widthPixels
+        val rawHeight = metrics.heightPixels
+
+        val scale = if(maxOf(rawWidth, rawHeight) > 960){
+            960f / maxOf(rawWidth, rawHeight)
+        } else 1f
+
+        val width = (rawWidth * scale).roundToInt()
+        val height = (rawHeight * scale).roundToInt()
 
         contentUri = createContentUri()
         val contentFd = contentResolver.openFileDescriptor(contentUri, "w")!!.fileDescriptor
