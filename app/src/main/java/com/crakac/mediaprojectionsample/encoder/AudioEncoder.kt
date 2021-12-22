@@ -15,7 +15,7 @@ private const val TAG = "AudioEncoder"
 class AudioEncoder(
     mediaProjection: MediaProjection,
     isStereo: Boolean = true,
-    dispatcher: CoroutineDispatcher = Executors.newFixedThreadPool(2).asCoroutineDispatcher(),
+    dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val listener: EncodeListener
 ) : Encoder {
     private val scope =
