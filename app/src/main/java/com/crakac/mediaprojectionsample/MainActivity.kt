@@ -23,7 +23,7 @@ import com.crakac.mediaprojectionsample.ui.theme.MyTheme
 class MainActivity : ComponentActivity() {
     private lateinit var mediaProjectionManager: MediaProjectionManager
 
-    private val captureRequest = registerForActivityResult(
+    private val launcher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode != RESULT_OK || result.data == null) {
@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
                 arrayOf(Manifest.permission.RECORD_AUDIO), 1001
             )
         } else {
-            captureRequest.launch(mediaProjectionManager.createScreenCaptureIntent())
+            launcher.launch(mediaProjectionManager.createScreenCaptureIntent())
         }
     }
 

@@ -5,7 +5,6 @@ import android.media.*
 import android.media.projection.MediaProjection
 import android.util.Log
 import kotlinx.coroutines.*
-import java.util.concurrent.Executors
 
 private const val MIME_TYPE_AAC = MediaFormat.MIMETYPE_AUDIO_AAC
 private const val SAMPLE_RATE = 44_100
@@ -36,8 +35,8 @@ class AudioEncoder(
         AudioFormat.ENCODING_PCM_16BIT
     )
 
-    private val audioBuffer = ShortArray(audioBufferSizeInBytes / 2)
-    private val writeBuffer = ByteArray(audioBufferSizeInBytes)
+    private val synthesizedData = ShortArray(audioBufferSizeInBytes / 2)
+    private val synthesizedByteArray = ByteArray(audioBufferSizeInBytes)
 
     @SuppressLint("MissingPermission")
     private val audioRecord = AudioRecord(
@@ -111,13 +110,13 @@ class AudioEncoder(
             }
             val dataSizeInShorts = minOf(voice.readShorts, playback.readShorts)
             for (i in 0 until dataSizeInShorts) {
-                audioBuffer[i] =
+                synthesizedData[i] =
                     minOf(voice.data[i] + playback.data[i], Short.MAX_VALUE.toInt()).toShort()
             }
             val inputBufferId = codec.dequeueInputBuffer(-1)
             val inputBuffer = codec.getInputBuffer(inputBufferId)!!
-            audioBuffer.copyToByteArray(writeBuffer, dataSizeInShorts)
-            inputBuffer.put(writeBuffer)
+            synthesizedData.copyToByteArray(synthesizedByteArray, dataSizeInShorts)
+            inputBuffer.put(synthesizedByteArray)
             codec.queueInputBuffer(
                 inputBufferId, 0, dataSizeInShorts * 2, audioRecord.createTimestamp(), 0
             )
