@@ -12,7 +12,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
-import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
@@ -67,10 +66,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MyTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colors.background
-                ) {
+                Surface {
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.Center
@@ -83,7 +79,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text(text = "Start")
                         }
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(16.dp))
                         Button(
                             modifier = Modifier
                                 .width(120.dp)

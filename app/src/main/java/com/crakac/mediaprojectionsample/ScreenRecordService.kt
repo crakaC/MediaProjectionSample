@@ -16,7 +16,6 @@ import android.net.Uri
 import android.os.Environment
 import android.os.IBinder
 import android.provider.MediaStore
-import android.util.Log
 import com.crakac.mediaprojectionsample.encoder.MyMediaRecorder
 import java.text.SimpleDateFormat
 import java.util.*
@@ -113,12 +112,10 @@ class ScreenRecordService : Service() {
         contentResolver.update(contentUri, values, null, null)
     }
 
-    private val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
     private fun createContentUri(): Uri {
+        val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
         val formattedTime = sdf.format(Date())
         val filename = "$formattedTime.mp4"
-        Log.i(TAG, "outputFilePath: $filename")
-
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, filename)
             put(MediaStore.Video.Media.TITLE, filename)
