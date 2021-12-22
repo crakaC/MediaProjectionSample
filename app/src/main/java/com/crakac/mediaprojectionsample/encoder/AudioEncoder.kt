@@ -7,7 +7,7 @@ import android.util.Log
 import kotlinx.coroutines.*
 import java.util.concurrent.Executors
 
-private const val MIME_TYPE = MediaFormat.MIMETYPE_AUDIO_AAC
+private const val MIME_TYPE_AAC = MediaFormat.MIMETYPE_AUDIO_AAC
 private const val SAMPLE_RATE = 44_100
 private const val BIT_RATE = 64 * 1024 // 64kbps
 private const val TAG = "AudioEncoder"
@@ -55,13 +55,13 @@ class AudioEncoder(
         .build()
 
     private val format =
-        MediaFormat.createAudioFormat(MIME_TYPE, SAMPLE_RATE, channelCount).apply {
-            setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
+        MediaFormat.createAudioFormat(MIME_TYPE_AAC, SAMPLE_RATE, channelCount).apply {
+            setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectHE)
             setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE)
             setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, audioBufferSize)
         }
 
-    private val codec = MediaCodec.createEncoderByType(MIME_TYPE)
+    private val codec = MediaCodec.createEncoderByType(MIME_TYPE_AAC)
 
     private var isEncoding = false
 
