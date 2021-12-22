@@ -11,9 +11,6 @@ private const val MIME_TYPE_AAC = MediaFormat.MIMETYPE_AUDIO_AAC
 private const val SAMPLE_RATE = 44_100
 private const val BIT_RATE = 64 * 1024 // 64kbps
 private const val TAG = "AudioEncoder"
-private const val NANOS_PER_SECOND = 1_000_000_000L
-private const val NANOS_PER_MICROS = 1_000L
-private const val BYTES_PER_SAMPLE = 2 // 16bit-PCM
 
 class AudioEncoder(
     mediaProjection: MediaProjection,
@@ -32,17 +29,27 @@ class AudioEncoder(
     private val channelCount = if (isStereo) 2 else 1
     private val channelMask =
         if (isStereo) AudioFormat.CHANNEL_IN_STEREO else AudioFormat.CHANNEL_IN_MONO
-    private val bytesPerFrame = channelCount * BYTES_PER_SAMPLE
 
-    private val audioBufferSize = AudioRecord.getMinBufferSize(
+    private val audioBufferSizeInBytes = AudioRecord.getMinBufferSize(
         SAMPLE_RATE,
         channelCount,
         AudioFormat.ENCODING_PCM_16BIT
     )
-    private val audioBuffer = ByteArray(audioBufferSize)
+
+    private val audioBuffer = ShortArray(audioBufferSizeInBytes / 2)
+    private val writeBuffer = ByteArray(audioBufferSizeInBytes)
 
     @SuppressLint("MissingPermission")
-    private val audioRecord = AudioRecord.Builder()
+    private val audioRecord = AudioRecord(
+        MediaRecorder.AudioSource.CAMCORDER,
+        SAMPLE_RATE,
+        channelMask,
+        AudioFormat.ENCODING_PCM_16BIT,
+        audioBufferSizeInBytes
+    ).wrap(audioBufferSizeInBytes)
+
+    @SuppressLint("MissingPermission")
+    private val audioPlayback = AudioRecord.Builder()
         .setAudioPlaybackCaptureConfig(playbackConfig)
         .setAudioFormat(
             AudioFormat.Builder()
@@ -51,29 +58,20 @@ class AudioEncoder(
                 .setChannelMask(channelMask)
                 .build()
         )
-        .setBufferSizeInBytes(audioBufferSize)
+        .setBufferSizeInBytes(audioBufferSizeInBytes)
         .build()
+        .wrap(audioBufferSizeInBytes)
 
     private val format =
         MediaFormat.createAudioFormat(MIME_TYPE_AAC, SAMPLE_RATE, channelCount).apply {
             setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectHE)
             setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE)
-            setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, audioBufferSize)
+            setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, audioBufferSizeInBytes)
         }
 
     private val codec = MediaCodec.createEncoderByType(MIME_TYPE_AAC)
 
     private var isEncoding = false
-
-    private fun createTimestamp(framePosition: Long): Long {
-        val audioTimestamp = AudioTimestamp()
-        audioRecord.getTimestamp(audioTimestamp, AudioTimestamp.TIMEBASE_MONOTONIC)
-        val referenceFrame = audioTimestamp.framePosition
-        val referenceTimestamp = audioTimestamp.nanoTime
-        val timestampNanos =
-            referenceTimestamp + (framePosition - referenceFrame) * NANOS_PER_SECOND / SAMPLE_RATE
-        return timestampNanos / NANOS_PER_MICROS
-    }
 
     override fun prepare() {
         codec.reset()
@@ -88,6 +86,7 @@ class AudioEncoder(
         }
         isEncoding = true
         audioRecord.startRecording()
+        audioPlayback.startRecording()
         codec.start()
         recordJob = record()
         drain()
@@ -97,26 +96,31 @@ class AudioEncoder(
      * Read data from audioRecord and pass to codec
      */
     private fun record() = scope.launch {
-        var totalReadFrames = 0L
         while (isActive) {
-            val readBytes = audioRecord.read(audioBuffer, 0, audioBufferSize)
-            if (readBytes < 0) {
-                val msg = when (readBytes) {
-                    AudioRecord.ERROR_INVALID_OPERATION -> "Invalid Operation"
-                    AudioRecord.ERROR_BAD_VALUE -> "Bad Value"
-                    AudioRecord.ERROR_DEAD_OBJECT -> "Dead Object"
-                    else -> "Unknown Error"
-                }
-                Log.e(TAG, msg)
-                continue
+            val deferredVoice = async { audioRecord.read() }
+            val deferredPlayback = async { audioPlayback.read() }
+
+            val voice = deferredVoice.await()
+            val playback = deferredPlayback.await()
+            if (!voice.isSuccess || !playback.isSuccess) continue
+            if (voice.readShorts != playback.readShorts) {
+                Log.w(
+                    TAG,
+                    "voice.readBytes != playback.readBytes (${voice.readShorts}, ${playback.readShorts})"
+                )
+            }
+            val dataSizeInShorts = minOf(voice.readShorts, playback.readShorts)
+            for (i in 0 until dataSizeInShorts) {
+                audioBuffer[i] =
+                    minOf(voice.data[i] + playback.data[i], Short.MAX_VALUE.toInt()).toShort()
             }
             val inputBufferId = codec.dequeueInputBuffer(-1)
             val inputBuffer = codec.getInputBuffer(inputBufferId)!!
-            inputBuffer.put(audioBuffer)
+            audioBuffer.copyToByteArray(writeBuffer, dataSizeInShorts)
+            inputBuffer.put(writeBuffer)
             codec.queueInputBuffer(
-                inputBufferId, 0, readBytes, createTimestamp(totalReadFrames), 0
+                inputBufferId, 0, dataSizeInShorts * 2, audioRecord.createTimestamp(), 0
             )
-            totalReadFrames += readBytes / bytesPerFrame
         }
     }
 
@@ -152,6 +156,7 @@ class AudioEncoder(
 
     override fun stop() {
         audioRecord.stop()
+        audioPlayback.stop()
         recordJob?.cancel()
         val id = codec.dequeueInputBuffer(-1)
         // send EOS to stop encoding
@@ -161,6 +166,7 @@ class AudioEncoder(
     override fun release() {
         isEncoding = false
         audioRecord.release()
+        audioPlayback.release()
         codec.release()
         scope.cancel()
     }
