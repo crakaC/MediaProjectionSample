@@ -7,10 +7,10 @@ import android.media.projection.MediaProjection
 import android.view.Surface
 import java.io.FileDescriptor
 import java.nio.ByteBuffer
-import java.util.concurrent.atomic.AtomicInteger
 
 
 private const val NUM_TRACKS = 2 // video, audio
+private const val UNINITIALIZED = -1
 
 class MyMediaRecorder(
     mediaProjection: MediaProjection,
@@ -18,56 +18,47 @@ class MyMediaRecorder(
     width: Int,
     height: Int,
     isStereo: Boolean = true,
-) {
+) : EncodeListener {
     private val muxer = MediaMuxer(fileDescriptor, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
 
     /** Before using this surface, must call [prepare]*/
     val surface: Surface
         get() = videoEncoder.inputSurface
     private var isMuxerAvailable = false
-    private val trackCount = AtomicInteger(0)
-    private val audioListener = object : EncodeListener {
-        var audioTrackIndex = 0
-        override fun onFormatChanged(format: MediaFormat) {
-            audioTrackIndex = muxer.addTrack(format)
-            startMuxerIfAvailable()
-        }
+    private var trackCount = 0
+    private val trackIds = MutableList(NUM_TRACKS) { UNINITIALIZED }
 
-        override fun onEncoded(buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
-            if(!isMuxerAvailable) return
-            muxer.writeSampleData(audioTrackIndex, buffer, info)
+    override fun onFormatChanged(format: MediaFormat, type: EncoderType) {
+        val index = type.ordinal
+        synchronized(this) {
+            if (trackIds[index] == UNINITIALIZED) {
+                trackIds[index] = muxer.addTrack(format)
+                trackCount++
+                if (trackCount == NUM_TRACKS) {
+                    muxer.start()
+                    isMuxerAvailable = true
+                }
+            }
         }
     }
 
-    private val videoListener = object : EncodeListener {
-        var videoTrackIndex = 0
-        override fun onFormatChanged(format: MediaFormat) {
-            videoTrackIndex = muxer.addTrack(format)
-            startMuxerIfAvailable()
-        }
-
-        override fun onEncoded(buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
-            if(!isMuxerAvailable) return
-            muxer.writeSampleData(videoTrackIndex, buffer, info)
-        }
-    }
-
-    private fun startMuxerIfAvailable(){
-        if(trackCount.incrementAndGet() == NUM_TRACKS){
-            muxer.start()
-            isMuxerAvailable = true
-        }
+    override fun onEncoded(buffer: ByteBuffer, info: MediaCodec.BufferInfo, type: EncoderType) {
+        if (!isMuxerAvailable) return
+        val trackId = trackIds[type.ordinal]
+        muxer.writeSampleData(trackId, buffer, info)
     }
 
     private val audioEncoder = AudioEncoder(
-        mediaProjection = mediaProjection, isStereo = isStereo, listener = audioListener
+        mediaProjection = mediaProjection, isStereo = isStereo, listener = this
     )
 
     private val videoEncoder = VideoEncoder(
-        width = width, height = height, listener = videoListener
+        width = width, height = height, listener = this
     )
 
     fun prepare() {
+        trackCount = 0
+        trackIds.replaceAll { UNINITIALIZED }
         audioEncoder.prepare()
         videoEncoder.prepare()
     }

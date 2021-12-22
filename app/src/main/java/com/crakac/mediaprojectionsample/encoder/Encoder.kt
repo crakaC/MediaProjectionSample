@@ -6,3 +6,5 @@ interface Encoder {
     fun stop()
     fun release()
 }
+
+enum class EncoderType { Video, Audio }

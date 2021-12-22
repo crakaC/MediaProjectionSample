@@ -118,7 +118,7 @@ class AudioEncoder(
             synthesizedData.copyToByteArray(synthesizedByteArray, dataSizeInShorts)
             inputBuffer.put(synthesizedByteArray)
             codec.queueInputBuffer(
-                inputBufferId, 0, dataSizeInShorts * 2, audioRecord.createTimestamp(), 0
+                inputBufferId, 0, dataSizeInShorts * 2, audioPlayback.createTimestamp(), 0
             )
         }
     }
@@ -131,7 +131,7 @@ class AudioEncoder(
                 continue
             } else if (outputBufferId == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                 Log.d(TAG, "Output format changed")
-                listener.onFormatChanged(codec.outputFormat)
+                listener.onFormatChanged(codec.outputFormat, EncoderType.Audio)
             } else {
                 val encodedData = codec.getOutputBuffer(outputBufferId)
                     ?: throw RuntimeException("encodedData is null")
@@ -139,7 +139,7 @@ class AudioEncoder(
                     bufferInfo.size = 0
                 }
                 if (bufferInfo.size > 0) {
-                    listener.onEncoded(encodedData, bufferInfo)
+                    listener.onEncoded(encodedData, bufferInfo, EncoderType.Audio)
                     codec.releaseOutputBuffer(outputBufferId, false)
                 }
 

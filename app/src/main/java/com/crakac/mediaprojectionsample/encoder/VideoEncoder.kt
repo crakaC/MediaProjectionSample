@@ -46,7 +46,7 @@ class VideoEncoder(width: Int, height: Int, private val listener: EncodeListener
     ) {
         val buffer =
             codec.getOutputBuffer(index) ?: throw RuntimeException("Output buffer is null")
-        listener.onEncoded(buffer, info)
+        listener.onEncoded(buffer, info, EncoderType.Video)
         codec.releaseOutputBuffer(index, false)
     }
 
@@ -56,7 +56,7 @@ class VideoEncoder(width: Int, height: Int, private val listener: EncodeListener
 
     override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
         Log.d(TAG, "onOutputFormatChanged: ${format.getString(MediaFormat.KEY_MIME)}")
-        listener.onFormatChanged(format)
+        listener.onFormatChanged(format, EncoderType.Video)
     }
 
     override fun prepare() {
