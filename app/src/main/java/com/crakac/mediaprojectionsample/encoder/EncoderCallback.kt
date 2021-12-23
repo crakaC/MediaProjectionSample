@@ -4,7 +4,7 @@ import android.media.MediaCodec
 import android.media.MediaFormat
 import java.nio.ByteBuffer
 
-interface EncodeListener {
+interface EncoderCallback {
     fun onFormatChanged(format: MediaFormat, type: EncoderType)
     fun onEncoded(buffer: ByteBuffer, info: MediaCodec.BufferInfo, type: EncoderType)
 }

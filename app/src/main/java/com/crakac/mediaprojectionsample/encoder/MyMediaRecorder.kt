@@ -18,7 +18,7 @@ class MyMediaRecorder(
     width: Int,
     height: Int,
     isStereo: Boolean = true,
-) : EncodeListener {
+) : EncoderCallback {
     private val muxer = MediaMuxer(fileDescriptor, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
 
     /** Before using this surface, must call [prepare]*/
@@ -49,16 +49,14 @@ class MyMediaRecorder(
     }
 
     private val audioEncoder = AudioEncoder(
-        mediaProjection = mediaProjection, isStereo = isStereo, listener = this
+        mediaProjection = mediaProjection, isStereo = isStereo, callback = this
     )
 
     private val videoEncoder = VideoEncoder(
-        width = width, height = height, listener = this
+        width = width, height = height, callback = this
     )
 
     fun prepare() {
-        trackCount = 0
-        trackIds.replaceAll { UNINITIALIZED }
         audioEncoder.prepare()
         videoEncoder.prepare()
     }
@@ -71,12 +69,12 @@ class MyMediaRecorder(
     fun stop() {
         audioEncoder.stop()
         videoEncoder.stop()
-        muxer.stop()
     }
 
     fun release() {
         audioEncoder.release()
         videoEncoder.release()
+        muxer.stop()
         muxer.release()
     }
 }

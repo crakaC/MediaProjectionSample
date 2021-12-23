@@ -15,7 +15,7 @@ class AudioEncoder(
     mediaProjection: MediaProjection,
     isStereo: Boolean = true,
     dispatcher: CoroutineDispatcher = Dispatchers.Default,
-    private val listener: EncodeListener
+    private val callback: EncoderCallback
 ) : Encoder {
     private val scope =
         CoroutineScope(CoroutineName(TAG) + dispatcher)
@@ -131,7 +131,7 @@ class AudioEncoder(
                 continue
             } else if (outputBufferId == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                 Log.d(TAG, "Output format changed")
-                listener.onFormatChanged(codec.outputFormat, EncoderType.Audio)
+                callback.onFormatChanged(codec.outputFormat, EncoderType.Audio)
             } else {
                 val encodedData = codec.getOutputBuffer(outputBufferId)
                     ?: throw RuntimeException("encodedData is null")
@@ -139,7 +139,7 @@ class AudioEncoder(
                     bufferInfo.size = 0
                 }
                 if (bufferInfo.size > 0) {
-                    listener.onEncoded(encodedData, bufferInfo, EncoderType.Audio)
+                    callback.onEncoded(encodedData, bufferInfo, EncoderType.Audio)
                     codec.releaseOutputBuffer(outputBufferId, false)
                 }
 

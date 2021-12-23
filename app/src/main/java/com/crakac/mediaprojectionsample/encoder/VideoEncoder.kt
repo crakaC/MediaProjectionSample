@@ -13,9 +13,8 @@ private const val REPEAT_FRAMES_AFTER_MICRO_SEC = 1_000_000L / 30
 
 private const val TAG = "VideoEncoder"
 
-class VideoEncoder(width: Int, height: Int, private val listener: EncodeListener) :
+class VideoEncoder(width: Int, height: Int, private val callback: EncoderCallback) :
     Encoder, MediaCodec.Callback() {
-
     /** inputSurface is created in prepare() */
     lateinit var inputSurface: Surface
         private set
@@ -46,7 +45,7 @@ class VideoEncoder(width: Int, height: Int, private val listener: EncodeListener
     ) {
         val buffer =
             codec.getOutputBuffer(index) ?: throw RuntimeException("Output buffer is null")
-        listener.onEncoded(buffer, info, EncoderType.Video)
+        callback.onEncoded(buffer, info, EncoderType.Video)
         codec.releaseOutputBuffer(index, false)
     }
 
@@ -56,7 +55,7 @@ class VideoEncoder(width: Int, height: Int, private val listener: EncodeListener
 
     override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
         Log.d(TAG, "onOutputFormatChanged: ${format.getString(MediaFormat.KEY_MIME)}")
-        listener.onFormatChanged(format, EncoderType.Video)
+        callback.onFormatChanged(format, EncoderType.Video)
     }
 
     override fun prepare() {
